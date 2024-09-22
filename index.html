@@ -6,11 +6,12 @@
   <title>GPA Calculator</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    .container { width: 100%; max-width: 600px; margin: 0 auto; }
+    .container { width: 100%; max-width: 800px; margin: 0 auto; }
     .year { margin-top: 20px; }
     .warning { color: red; font-weight: bold; }
-    input { margin-bottom: 10px; }
-    h3 { margin-top: 30px; }
+    .module { display: flex; align-items: center; margin-bottom: 10px; }
+    .module label { width: 120px; }
+    .module input { margin-right: 10px; width: 100px; }
   </style>
 </head>
 <body>
@@ -35,109 +36,105 @@
 
 <script>
 // Global variables for storing grade and credit information
-let currentYear = 1;
-let maxYears = 3;
-let totalCredits = 0;
-let creditsForYear = 120;
-let totalGPA = { year1: [], year2: [], year3: [], year4: [] };
+let totalGPA = { year2: [], year3: [], year4: [] };
+const maxCreditsPerYear = 120;
 
-// Select program based on user input
+// Select program and create input fields
 function selectProgram() {
   const program = document.querySelector('input[name="program"]:checked').value;
   document.getElementById('yearInputs').innerHTML = ''; // Clear any existing inputs
-  currentYear = 1;
 
   if (program === 'PRE') {
-    maxYears = 3;
-    createYearInput(1);
+    createYearInputs(2);
+    createYearInputs(3);
   } else if (program === 'MPlanMPRE') {
-    maxYears = 4;
-    createYearInput(1);
+    createYearInputs(2);
+    createYearInputs(3);
+    createYearInputs(4);
   }
 }
 
-// Create input form for each year
-function createYearInput(year) {
+// Create input fields for each year
+function createYearInputs(year) {
   let yearDiv = document.createElement('div');
   yearDiv.classList.add('year');
-  yearDiv.innerHTML = `
-    <h3>Year ${year} (Input total of 120 credits)</h3>
-    <div id="modulesYear${year}">
-      <div class="module">
-        <label for="unitName">Unit Name (Optional):</label>
-        <input type="text" class="unitName">
-        <label for="grade">Final Grade (0-100):</label>
-        <input type="number" class="grade" min="0" max="100" required>
-        <label for="credits">Credits:</label>
-        <input type="number" class="credits" required>
-        <button type="button" onclick="addModule(${year})">Add Module</button>
-      </div>
-    </div>
-    <p id="creditsWarningYear${year}" class="warning"></p>
-  `;
+  yearDiv.innerHTML = `<h3>Year ${year} (Input total of 120 credits)</h3>`;
+  
+  for (let i = 0; i < 8; i++) {
+    let moduleDiv = document.createElement('div');
+    moduleDiv.classList.add('module');
+    moduleDiv.innerHTML = `
+      <label>Module ${i + 1}</label>
+      <input type="text" placeholder="Unit Name" class="unitName">
+      <input type="number" placeholder="Grade (0-100)" class="grade" min="0" max="100" oninput="calculateGPA()">
+      <input type="number" placeholder="Credits (0-40)" class="credits" min="0" max="40" oninput="calculateGPA()">
+    `;
+    yearDiv.appendChild(moduleDiv);
+  }
+
+  // Credit warning
+  yearDiv.innerHTML += `<p id="creditsWarningYear${year}" class="warning"></p>`;
   document.getElementById('yearInputs').appendChild(yearDiv);
 }
 
-// Add module information to the year
-function addModule(year) {
-  const modulesDiv = document.getElementById(`modulesYear${year}`);
-  const grade = parseFloat(modulesDiv.querySelector('.grade').value);
-  const credits = parseFloat(modulesDiv.querySelector('.credits').value);
+// Calculate GPA based on input
+function calculateGPA() {
+  const program = document.querySelector('input[name="program"]:checked') ? document.querySelector('input[name="program"]:checked').value : null;
+  if (!program) return;
 
-  // Validation for grades and credits
-  if (isNaN(grade) || isNaN(credits) || credits <= 0 || grade < 0 || grade > 100) {
-    alert('Please enter a valid grade (0-100) and credits.');
-    return;
+  let overallGPA = 0;
+  let totalCreditsCompleted = 0;
+
+  // Calculate GPA for each year
+  const years = program === 'PRE' ? [2, 3] : [2, 3, 4];
+  let yearWeights = program === 'PRE' ? { 2: 0.33, 3: 0.67 } : { 2: 0.2, 3: 0.4, 4: 0.4 };
+
+  for (let year of years) {
+    let yearData = getYearData(year);
+    if (yearData.totalCredits > maxCreditsPerYear) {
+      document.getElementById(`creditsWarningYear${year}`).textContent = `You have exceeded the 120 credits limit for Year ${year}. Please review your input.`;
+    } else if (yearData.totalCredits < maxCreditsPerYear) {
+      document.getElementById(`creditsWarningYear${year}`).textContent = `You have ${yearData.totalCredits} credits for Year ${year}, missing ${maxCreditsPerYear - yearData.totalCredits} credits.`;
+    } else {
+      document.getElementById(`creditsWarningYear${year}`).textContent = `120 credits completed for Year ${year}.`;
+    }
+
+    // If credits are 120, calculate weighted GPA for the year
+    if (yearData.totalCredits === maxCreditsPerYear) {
+      let yearGPA = yearData.weightedSum / yearData.totalCredits;
+      overallGPA += yearGPA * yearWeights[year];
+    }
+
+    totalCreditsCompleted += yearData.totalCredits;
   }
 
-  totalGPA[`year${year}`].push({ grade, credits });
-
-  // Check credit total for the year
-  const totalCredits = totalGPA[`year${year}`].reduce((acc, item) => acc + item.credits, 0);
-  const warning = document.getElementById(`creditsWarningYear${year}`);
-  if (totalCredits > 120) {
-    warning.textContent = `You have exceeded the 120 credits limit. Please review your input.`;
-  } else if (totalCredits < 120) {
-    warning.textContent = `You have ${totalCredits} credits, missing ${120 - totalCredits} credits.`;
+  // Show final GPA if all years have 120 credits
+  if (totalCreditsCompleted >= years.length * maxCreditsPerYear) {
+    document.getElementById('result').innerHTML = `<h3>Your final GPA is: ${overallGPA.toFixed(2)}</h3>`;
   } else {
-    warning.textContent = `120 credits completed for Year ${year}.`;
-  }
-
-  // Automatically calculate GPA if year is complete
-  if (totalCredits <= 120) {
-    calculateFinalGPA();
+    document.getElementById('result').innerHTML = '';
   }
 }
 
-// Calculate final GPA based on the selected program
-function calculateFinalGPA() {
-  const program = document.querySelector('input[name="program"]:checked').value;
-  let gpa = 0;
+// Get GPA data for a specific year
+function getYearData(year) {
+  const yearDiv = document.querySelectorAll(`#modulesYear${year} .module`);
+  let totalCredits = 0;
+  let weightedSum = 0;
 
-  if (program === 'PRE') {
-    const year2GPA = calculateYearGPA(2);
-    const year3GPA = calculateYearGPA(3);
-    gpa = (year2GPA * 0.33) + (year3GPA * 0.67);
-  } else if (program === 'MPlanMPRE') {
-    const year2GPA = calculateYearGPA(2);
-    const year3GPA = calculateYearGPA(3);
-    const year4GPA = calculateYearGPA(4);
-    gpa = (year2GPA * 0.2) + (year3GPA * 0.4) + (year4GPA * 0.4);
+  for (let module of yearDiv) {
+    const grade = parseFloat(module.querySelector('.grade').value);
+    const credits = parseFloat(module.querySelector('.credits').value);
+    
+    if (!isNaN(grade) && !isNaN(credits) && credits > 0) {
+      totalCredits += credits;
+      weightedSum += grade * credits;
+    }
   }
 
-  document.getElementById('result').innerHTML = `<h3>Your final GPA is: ${gpa.toFixed(2)}</h3>`;
+  return { totalCredits, weightedSum };
 }
 
-// Calculate GPA for a specific year
-function calculateYearGPA(year) {
-  const yearData = totalGPA[`year${year}`];
-  if (yearData.length === 0) return 0;
-  
-  const totalCredits = yearData.reduce((acc, item) => acc + item.credits, 0);
-  const weightedSum = yearData.reduce((acc, item) => acc + (item.grade * item.credits), 0);
-  
-  return weightedSum / totalCredits;
-}
 </script>
 </body>
 </html>
