@@ -126,7 +126,7 @@ function calculateGPA() {
 
 // Get GPA data for a specific year
 function getYearData(year) {
-  const yearDiv = document.querySelectorAll(`#modulesYear${year} .module`);
+  const yearDiv = document.querySelectorAll(`.year:nth-of-type(${year - 1}) .module`);
   let totalCredits = 0;
   let weightedSum = 0;
 
@@ -134,7 +134,8 @@ function getYearData(year) {
     const grade = parseFloat(module.querySelector('.grade').value);
     const credits = parseFloat(module.querySelector('.credits').value);
     
-    if (!isNaN(grade) && !isNaN(credits) && credits > 0) {
+    // Only consider fields where both grade and credits are filled
+    if (!isNaN(grade) && !isNaN(credits) && credits > 0 && grade >= 0 && grade <= 100) {
       totalCredits += credits;
       weightedSum += grade * credits;
     }
